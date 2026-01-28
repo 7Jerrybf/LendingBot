@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  zenith-engine:
+    build: .
+    restart: unless-stopped
+    environment:
+      - BITFINEX_API_KEY=${BITFINEX_API_KEY}
+      - BITFINEX_API_SECRET=${BITFINEX_API_SECRET}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./zenith_engine:/app/zenith_engine
