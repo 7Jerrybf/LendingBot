@@ -2,6 +2,7 @@
 import asyncio
 import logging
 from decimal import Decimal
+from datetime import datetime, time as dt_time
 import os
 import signal
 from typing import List
@@ -128,13 +129,72 @@ class ZenithEngine:
                 
                 logger.info(f"Cycle: VWAR={vwar:.6f} Bias={signal_bias} Orders={len(orders_to_place)}")
                 
-                # Send Report periodically (mock logic)
-                # await self.discord.send_report(...)
-                
             except Exception as e:
                 logger.error(f"Rebalance Loop Error: {e}")
                 
             await asyncio.sleep(10)
+
+    async def _daily_status_notification(self):
+        """Send daily status notification at 1:00 PM"""
+        while self.running:
+            try:
+                now = datetime.now()
+                target_time = now.replace(hour=13, minute=0, second=0, microsecond=0)
+                
+                # If already past 1 PM today, schedule for tomorrow
+                if now >= target_time:
+                    target_time = target_time.replace(day=now.day + 1)
+                
+                # Calculate seconds until target time
+                wait_seconds = (target_time - now).total_seconds()
+                logger.info(f"Next daily notification scheduled in {wait_seconds:.0f} seconds")
+                
+                await asyncio.sleep(wait_seconds)
+                
+                # Send daily status
+                await self._send_status_report()
+                
+                # Wait a bit to avoid double triggers
+                await asyncio.sleep(60)
+                
+            except Exception as e:
+                logger.error(f"Daily notification error: {e}")
+                await asyncio.sleep(3600)  # Retry in 1 hour
+
+    async def _send_status_report(self):
+        """Generate and send status report"""
+        try:
+            # Calculate current metrics
+            vwar = 0.0
+            if self.state.trades:
+                vwar = MarketStats.calculate_vwar(self.state.trades)
+            elif self.state.bids:
+                vwar = float(max(self.state.bids.keys()))
+            
+            # Calculate APR (VWAR * 365 * 100 for percentage)
+            current_apr = vwar * 365 * 100
+            
+            # Calculate utilization
+            total_equity = self.state.get_total_equity()
+            if total_equity > 0:
+                utilization = float(self.state.lent_balance / total_equity * 100)
+            else:
+                utilization = 0.0
+            
+            # Active layers info
+            active_layers = []
+            if self.state.is_aggressive_mode:
+                active_layers.append("🔥 Aggressive Mode Active")
+            if self.state.pending_orders:
+                active_layers.append(f"📊 {len(self.state.pending_orders)} pending orders")
+            if not active_layers:
+                active_layers.append("✅ Normal operation")
+            
+            await self.discord.send_report(current_apr, utilization, active_layers)
+            logger.info("Daily status notification sent")
+            
+        except Exception as e:
+            logger.error(f"Failed to send status report: {e}")
 
     async def start(self):
         logger.info("Starting Zenith Liquidity Engine...")
@@ -144,6 +204,9 @@ class ZenithEngine:
         
         # Start Signal Loop
         asyncio.create_task(self._update_signals())
+        
+        # Start Daily Notification Scheduler
+        asyncio.create_task(self._daily_status_notification())
         
         # Start Rebalance Loop
         await self._rebalance_loop()

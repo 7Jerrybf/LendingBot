@@ -1,6 +1,7 @@
 
 import aiohttp
 import logging
+from datetime import datetime
 from ..config import Config
 
 logger = logging.getLogger(__name__)
@@ -24,11 +25,13 @@ class DiscordNotifier:
                 logger.error(f"Discord notification error: {e}")
 
     async def send_report(self, current_apr: float, utilization_rate: float, active_layers: list):
-        # Timestamp / Current APR / Utilization Rate
-        # Activity: "Spike Hunter triggered..."
-        msg = f"**Zenith Report**\n" \
-              f"APR: {current_apr:.4f}%\n" \
-              f"Utilization: {utilization_rate:.2f}%\n" \
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        msg = f"**📈 Zenith Daily Report**\n" \
+              f"🕐 {timestamp}\n" \
+              f"━━━━━━━━━━━━━━━━━━━━\n" \
+              f"💰 APR: {current_apr:.4f}%\n" \
+              f"📊 Utilization: {utilization_rate:.2f}%\n" \
+              f"━━━━━━━━━━━━━━━━━━━━\n" \
               f"Activity: {', '.join(active_layers)}"
         
         await self.send_message(msg)

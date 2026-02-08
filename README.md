@@ -59,6 +59,3 @@ The bot operates on an event loop that:
 3.  Applies a laddered distribution strategy to place offers.
 4.  Monitors active loans and offers, re-balancing when efficiency drops below a set threshold.
 
-## License
-
-[MIT License](LICENSE)
